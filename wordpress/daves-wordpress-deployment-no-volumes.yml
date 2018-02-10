@@ -1,0 +1,86 @@
+# Daves Wordpress K8s Test Configuration #
+# No Volumes(No Persistent Data) #
+
+# A Kubernetes object is a “record of intent”–once you create the object, #
+# the Kubernetes system will constantly work to ensure that object exists. #
+# By creating an object, you’re effectively telling the Kubernetes system what you want your cluster’s workload to look like; #
+# this is your cluster’s desired state. #
+
+# ---Required Object Fields--- #
+# In the .yaml file for the Kubernetes object you want to create, you’ll need to set values for the following fields: #
+
+# apiVersion - Which version of the Kubernetes API you’re using to create this object #
+# kind - What kind of object you want to create #
+# metadata - Data that helps uniquely identify the object, including a name string, UID, and optional namespace #
+
+
+# Secret Resource Object #
+# Password that will be used for MySQL DB #
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wordpress-secrets
+type: Opaque
+data:
+  db-password: cGFzc3dvcmQ=
+
+---
+# Deployment Resource Object #
+# Deployment & Pod Definitions #
+
+apiVersion: v1
+kind: Deployment
+metadata:
+  name: wordpress-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: wordpress
+    spec:
+      containers:
+      - name: wordpress
+        image: wordpress:4-php7.0
+        ports:
+        - name: http-port
+          containerPort: 80
+        env:
+          - name: WORDPRESS_DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: wordpress-secrets
+                key: db-password
+          - name: WORDPRESS_DB_HOST
+            value: 127.0.0.1
+      - name: mysql
+        image: mysql:5.7
+        ports:
+        - name: mysql-port
+          containerPort: 3306
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: wordpress-secrets
+                key: db-password
+
+---
+# Service Resource Object #
+# Expose App with a Service #
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress-service
+spec:
+  ports:
+  - port: 31001
+    nodePort: 31001
+    targetPort: http-port
+    protocol: TCP
+  selector:
+    app: wordpress
+  type: NodePort
+
