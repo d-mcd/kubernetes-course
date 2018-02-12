@@ -1,0 +1,127 @@
+# MySQL Backend
+# Web frontend
+#Uses Kubernetes DNS discovery
+
+## ---Secret--- ##
+# Establish Secrets used for DB
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: helloworld-secrets
+type: Opaque
+data:
+  username: aGVsbG93b3JsZA==
+  password: cGFzc3dvcmQ=
+  rootPassword: cm9vdHBhc3N3b3Jk
+  database: aGVsbG93b3JsZA==
+---
+
+## ---POD--- ##
+# Create MySQL Pod
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: database
+  labels:
+    app: database
+spec:
+  containers:
+  - name: mysql
+    image: mysql:5.7
+    ports:
+    - name: mysql-port
+      containerPort: 3306
+    env:
+      - name: MYSQL_ROOT_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: helloworld-secrets
+            key: rootPassword
+      - name: MYSQL_USER
+        valueFrom:
+          secretKeyRef:
+            name: helloworld-secrets
+            key: username
+      - name: MYSQL_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: helloworld-secrets
+            key: password
+      - name: MYSQL_DATABASE
+        valueFrom:
+          secretKeyRef:
+            name: helloworld-secrets
+            key: database
+---
+
+## ---Service--- ##
+# Create service for MySQL Pod (Exposes MySQL Pod)
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: database-service
+spec:
+  ports:
+  - port: 3306
+    protocol: TCP
+  selector:
+    app: database
+  type: NodePort
+---
+
+## --Deployment-- ##
+# Create deployment for web frontend
+# Connect to MySQL Pod via above Service/database-service using Kubernetes DNS resolution # env: - name: MYSQL_HOST value: database-service
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: helloworld-deployment
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: helloworld-db
+    spec:
+      containers:
+      - name: k8s-demo
+        image: wardviaene/k8s-demo
+        command: ["node", "index-db.js"]
+        ports:
+        - name: nodejs-port
+          containerPort: 3000
+        env:
+          - name: MYSQL_HOST
+            value: database-service
+          - name: MYSQL_USER
+            value: root
+          - name: MYSQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: helloworld-secrets
+                key: rootPassword
+          - name: MYSQL_DATABASE
+            valueFrom:
+              secretKeyRef:
+                name: helloworld-secrets
+                key: database
+---
+
+## ---Service--- ##
+# Create service for web frontend (Exposes web frontend)
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: helloworld-db-service
+  spec:
+    ports:
+    - port: 3000
+      protocol: TCP
+    selector:
+      app: helloworld-db
+    type: NodePort

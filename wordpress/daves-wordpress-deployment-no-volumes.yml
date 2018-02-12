@@ -29,11 +29,14 @@ data:
 # Deployment Resource Object #
 # Deployment & Pod Definitions #
 
-apiVersion: v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: wordpress-deployment
 spec:
+  selector:
+    matchLabels:
+      app: wordpress
   replicas: 1
   template:
     metadata:
